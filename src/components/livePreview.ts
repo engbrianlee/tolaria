@@ -30,6 +30,7 @@ class HrWidget extends WidgetType {
 
 function buildDecorations(view: EditorView): DecorationSet {
   const decs: Range<Decoration>[] = []
+
   const tree = syntaxTree(view.state)
 
   tree.iterate({
