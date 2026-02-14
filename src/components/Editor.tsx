@@ -6,6 +6,7 @@ import { markdown } from '@codemirror/lang-markdown'
 import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { livePreview } from './livePreview'
+import { frontmatterHide, findFrontmatter } from './frontmatterHide'
 import type { VaultEntry } from '../types'
 import './Editor.css'
 
@@ -72,8 +73,13 @@ export function Editor({ tabs, activeTabPath, onSwitchTab, onCloseTab }: EditorP
       viewRef.current = null
     }
 
+    // Place cursor after frontmatter so it starts hidden
+    const fmRange = findFrontmatter(activeTab.content)
+    const initialCursor = fmRange ? fmRange[1] : 0
+
     const state = EditorState.create({
       doc: activeTab.content,
+      selection: { anchor: initialCursor },
       extensions: [
         lineNumbers(),
         highlightActiveLine(),
@@ -85,6 +91,7 @@ export function Editor({ tabs, activeTabPath, onSwitchTab, onCloseTab }: EditorP
         oneDark,
         editorTheme,
         livePreview(),
+        frontmatterHide(),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         EditorView.lineWrapping,
       ],
