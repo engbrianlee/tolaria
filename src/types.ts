@@ -13,6 +13,8 @@ export interface VaultEntry {
   createdAt: number | null
   fileSize: number
   snippet: string
+  /** Generic relationship fields: any frontmatter key whose value contains wikilinks. */
+  relationships: Record<string, string[]>
 }
 
 export interface GitCommit {

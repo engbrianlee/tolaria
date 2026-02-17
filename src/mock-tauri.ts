@@ -392,6 +392,41 @@ aliases:
 ## Active Experiments
 - [[Stock Screener — EMA200 Wick Bounce]]
 `,
+  '/Users/luca/Laputa/essay/on-writing-well.md': `---
+title: On Writing Well
+is_a: Essay
+Belongs to:
+  - "[[responsibility/grow-newsletter]]"
+---
+
+# On Writing Well
+
+Good writing is lean and confident. Every sentence should serve a purpose.
+`,
+  '/Users/luca/Laputa/essay/engineering-leadership-101.md': `---
+title: Engineering Leadership 101
+is_a: Essay
+Belongs to:
+  - "[[responsibility/grow-newsletter]]"
+Related to:
+  - "[[topic/software-development]]"
+---
+
+# Engineering Leadership 101
+
+The transition from IC to manager is the hardest career shift in engineering.
+`,
+  '/Users/luca/Laputa/essay/ai-agents-primer.md': `---
+title: AI Agents Primer
+is_a: Essay
+Belongs to:
+  - "[[responsibility/grow-newsletter]]"
+---
+
+# AI Agents Primer
+
+AI agents are autonomous systems that can plan, execute, and adapt to achieve goals.
+`,
 }
 
 const MOCK_ENTRIES: VaultEntry[] = [
@@ -410,6 +445,10 @@ const MOCK_ENTRIES: VaultEntry[] = [
     createdAt: null,
     fileSize: 2048,
     snippet: 'This paragraph has bold text, italic text, bold italic, strikethrough, and inline code. Here\'s a regular link and a wiki-link to Matteo Cellini.',
+    relationships: {
+      'Belongs to': ['[[quarter/q1-2026]]'],
+      'Related to': ['[[topic/software-development]]'],
+    },
   },
   {
     path: '/Users/luca/Laputa/responsibility/grow-newsletter.md',
@@ -426,6 +465,15 @@ const MOCK_ENTRIES: VaultEntry[] = [
     createdAt: null,
     fileSize: 1024,
     snippet: 'Build a sustainable audience through high-quality weekly essays on engineering leadership, AI, and personal systems.',
+    relationships: {
+      'Has': [
+        '[[essay/on-writing-well|On Writing Well]]',
+        '[[essay/engineering-leadership-101|Engineering Leadership 101]]',
+        '[[essay/ai-agents-primer|AI Agents Primer]]',
+      ],
+      'Topics': ['[[topic/growth]]', '[[topic/writing]]'],
+      'Related to': ['[[topic/growth]]'],
+    },
   },
   {
     path: '/Users/luca/Laputa/responsibility/manage-sponsorships.md',
@@ -442,6 +490,9 @@ const MOCK_ENTRIES: VaultEntry[] = [
     createdAt: null,
     fileSize: 890,
     snippet: 'Revenue stream from newsletter sponsorships. Matteo Cellini handles day-to-day operations.',
+    relationships: {
+      'Owner': ['[[person/matteo-cellini|Matteo Cellini]]'],
+    },
   },
   {
     path: '/Users/luca/Laputa/procedure/write-weekly-essays.md',
@@ -458,6 +509,9 @@ const MOCK_ENTRIES: VaultEntry[] = [
     createdAt: null,
     fileSize: 512,
     snippet: 'Monday: Pick topic, outline Tuesday: First draft Wednesday: Edit and polish Thursday: Schedule for Tuesday send',
+    relationships: {
+      'Belongs to': ['[[responsibility/grow-newsletter]]'],
+    },
   },
   {
     path: '/Users/luca/Laputa/procedure/run-sponsorships.md',
@@ -474,6 +528,9 @@ const MOCK_ENTRIES: VaultEntry[] = [
     createdAt: null,
     fileSize: 640,
     snippet: 'Review pipeline in CRM Follow up with pending proposals Schedule confirmed sponsors Send performance reports to completed sponsors',
+    relationships: {
+      'Belongs to': ['[[responsibility/manage-sponsorships]]'],
+    },
   },
   {
     path: '/Users/luca/Laputa/experiment/stock-screener.md',
@@ -490,6 +547,10 @@ const MOCK_ENTRIES: VaultEntry[] = [
     createdAt: null,
     fileSize: 3200,
     snippet: 'Stocks that wick below the 200-day EMA and close above it show a statistically significant bounce in the following 5-10 days.',
+    relationships: {
+      'Related to': ['[[topic/trading]]', '[[topic/algorithmic-trading]]'],
+      'Has Data': ['[[data/ema200-backtest-results]]'],
+    },
   },
   {
     path: '/Users/luca/Laputa/note/facebook-ads-strategy.md',
@@ -506,6 +567,10 @@ const MOCK_ENTRIES: VaultEntry[] = [
     createdAt: null,
     fileSize: 847,
     snippet: 'Lookalike audiences from newsletter subscribers convert 3x better than interest-based targeting Video ads outperform static images by 40% on engagement',
+    relationships: {
+      'Belongs to': ['[[project/26q1-laputa-app]]'],
+      'Related to': ['[[topic/growth]]', '[[topic/ads]]'],
+    },
   },
   {
     path: '/Users/luca/Laputa/note/budget-allocation.md',
@@ -522,6 +587,9 @@ const MOCK_ENTRIES: VaultEntry[] = [
     createdAt: null,
     fileSize: 560,
     snippet: 'Under budget on ads due to improved targeting efficiency Consider reallocating savings to content production',
+    relationships: {
+      'Belongs to': ['[[project/26q1-laputa-app]]'],
+    },
   },
   {
     path: '/Users/luca/Laputa/person/matteo-cellini.md',
@@ -538,6 +606,7 @@ const MOCK_ENTRIES: VaultEntry[] = [
     createdAt: null,
     fileSize: 320,
     snippet: 'Sponsorship manager — handles all sponsor relationships, proposals, and reporting.',
+    relationships: {},
   },
   {
     path: '/Users/luca/Laputa/event/2026-02-14-laputa-app-kickoff.md',
@@ -554,6 +623,9 @@ const MOCK_ENTRIES: VaultEntry[] = [
     createdAt: null,
     fileSize: 1200,
     snippet: 'Agreed on four-panel layout inspired by Bear Notes CodeMirror 6 for the editor — live preview is critical MVP by end of Q1.',
+    relationships: {
+      'Related to': ['[[project/26q1-laputa-app]]', '[[person/matteo-cellini]]'],
+    },
   },
   {
     path: '/Users/luca/Laputa/topic/software-development.md',
@@ -570,6 +642,9 @@ const MOCK_ENTRIES: VaultEntry[] = [
     createdAt: null,
     fileSize: 256,
     snippet: 'A broad topic covering everything from frontend to systems programming.',
+    relationships: {
+      'Notes': ['[[note/facebook-ads-strategy]]', '[[note/budget-allocation]]'],
+    },
   },
   {
     path: '/Users/luca/Laputa/topic/trading.md',
@@ -586,6 +661,67 @@ const MOCK_ENTRIES: VaultEntry[] = [
     createdAt: null,
     fileSize: 180,
     snippet: 'Technical analysis (EMA, RSI, volume patterns) Algorithmic screening and alerts Risk management and position sizing',
+    relationships: {
+      'Notes': ['[[experiment/stock-screener]]'],
+    },
+  },
+  {
+    path: '/Users/luca/Laputa/essay/on-writing-well.md',
+    filename: 'on-writing-well.md',
+    title: 'On Writing Well',
+    isA: 'Essay',
+    aliases: [],
+    belongsTo: ['[[responsibility/grow-newsletter]]'],
+    relatedTo: [],
+    status: null,
+    owner: null,
+    cadence: null,
+    modifiedAt: Date.now() / 1000 - 86400 * 3,
+    createdAt: null,
+    fileSize: 4200,
+    snippet: 'Good writing is lean and confident. Every sentence should serve a purpose.',
+    relationships: {
+      'Belongs to': ['[[responsibility/grow-newsletter]]'],
+    },
+  },
+  {
+    path: '/Users/luca/Laputa/essay/engineering-leadership-101.md',
+    filename: 'engineering-leadership-101.md',
+    title: 'Engineering Leadership 101',
+    isA: 'Essay',
+    aliases: [],
+    belongsTo: ['[[responsibility/grow-newsletter]]'],
+    relatedTo: ['[[topic/software-development]]'],
+    status: null,
+    owner: null,
+    cadence: null,
+    modifiedAt: Date.now() / 1000 - 86400 * 7,
+    createdAt: null,
+    fileSize: 3800,
+    snippet: 'The transition from IC to manager is the hardest career shift in engineering.',
+    relationships: {
+      'Belongs to': ['[[responsibility/grow-newsletter]]'],
+      'Related to': ['[[topic/software-development]]'],
+    },
+  },
+  {
+    path: '/Users/luca/Laputa/essay/ai-agents-primer.md',
+    filename: 'ai-agents-primer.md',
+    title: 'AI Agents Primer',
+    isA: 'Essay',
+    aliases: [],
+    belongsTo: ['[[responsibility/grow-newsletter]]'],
+    relatedTo: [],
+    status: null,
+    owner: null,
+    cadence: null,
+    modifiedAt: Date.now() / 1000 - 86400 * 10,
+    createdAt: null,
+    fileSize: 5100,
+    snippet: 'AI agents are autonomous systems that can plan, execute, and adapt to achieve goals.',
+    relationships: {
+      'Belongs to': ['[[responsibility/grow-newsletter]]'],
+    },
   },
 ]
 
