@@ -229,12 +229,19 @@ export const Editor = memo(function Editor({
           const [, body] = splitFrontmatter(tab.content)
           const preprocessed = preProcessWikilinks(body)
           const targetPath = activeTabPath
-          editor.tryParseMarkdownToBlocks(preprocessed).then(blocks => {
+          // tryParseMarkdownToBlocks may return a Promise or blocks directly
+          const result = editor.tryParseMarkdownToBlocks(preprocessed)
+          const handleBlocks = (blocks: any[]) => {
             const withWikilinks = injectWikilinks(blocks)
             if (prevActivePathRef.current !== targetPath) return
             cache.set(targetPath, withWikilinks)
             applyBlocks(withWikilinks)
-          })
+          }
+          if (result && typeof (result as any).then === 'function') {
+            (result as Promise<any[]>).then(handleBlocks)
+          } else {
+            handleBlocks(result as any[])
+          }
         }
       }
 
