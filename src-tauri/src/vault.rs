@@ -454,19 +454,19 @@ struct VaultCache {
     entries: Vec<VaultEntry>,
 }
 
-fn cache_path(vault_path: &str) -> std::path::PathBuf {
-    Path::new(vault_path).join(".laputa-cache.json")
+fn cache_path(vault: &Path) -> std::path::PathBuf {
+    vault.join(".laputa-cache.json")
 }
 
-fn git_head_hash(vault_path: &str) -> Option<String> {
-    run_git(vault_path, &["rev-parse", "HEAD"]).map(|s| s.trim().to_string())
+fn git_head_hash(vault: &Path) -> Option<String> {
+    run_git(vault, &["rev-parse", "HEAD"]).map(|s| s.trim().to_string())
 }
 
 /// Run a git command in the given directory and return stdout if successful.
-fn run_git(vault_path: &str, args: &[&str]) -> Option<String> {
+fn run_git(vault: &Path, args: &[&str]) -> Option<String> {
     let output = std::process::Command::new("git")
         .args(args)
-        .current_dir(vault_path)
+        .current_dir(vault)
         .output()
         .ok()?;
     if !output.status.success() {
@@ -503,13 +503,13 @@ fn collect_md_paths_from_porcelain(stdout: &str) -> Vec<String> {
         .collect()
 }
 
-fn git_changed_files(vault_path: &str, from_hash: &str, to_hash: &str) -> Vec<String> {
+fn git_changed_files(vault: &Path, from_hash: &str, to_hash: &str) -> Vec<String> {
     let diff_arg = format!("{}..{}", from_hash, to_hash);
-    let mut files = run_git(vault_path, &["diff", &diff_arg, "--name-only"])
+    let mut files = run_git(vault, &["diff", &diff_arg, "--name-only"])
         .map(|s| collect_md_paths_from_diff(&s))
         .unwrap_or_default();
 
-    let uncommitted = run_git(vault_path, &["status", "--porcelain"])
+    let uncommitted = run_git(vault, &["status", "--porcelain"])
         .map(|s| collect_md_paths_from_porcelain(&s))
         .unwrap_or_default();
 
@@ -522,8 +522,8 @@ fn git_changed_files(vault_path: &str, from_hash: &str, to_hash: &str) -> Vec<St
     files
 }
 
-fn git_uncommitted_new_files(vault_path: &str) -> Vec<String> {
-    let stdout = match run_git(vault_path, &["status", "--porcelain"]) {
+fn git_uncommitted_new_files(vault: &Path) -> Vec<String> {
+    let stdout = match run_git(vault, &["status", "--porcelain"]) {
         Some(s) => s,
         None => return Vec::new(),
     };
@@ -534,24 +534,23 @@ fn git_uncommitted_new_files(vault_path: &str) -> Vec<String> {
         .collect()
 }
 
-fn load_cache(vault_path: &str) -> Option<VaultCache> {
-    let path = cache_path(vault_path);
-    let data = fs::read_to_string(&path).ok()?;
+fn load_cache(vault: &Path) -> Option<VaultCache> {
+    let data = fs::read_to_string(cache_path(vault)).ok()?;
     serde_json::from_str(&data).ok()
 }
 
-fn write_cache(vault_path: &str, cache: &VaultCache) {
-    let path = cache_path(vault_path);
+fn write_cache(vault: &Path, cache: &VaultCache) {
     if let Ok(data) = serde_json::to_string(cache) {
-        let _ = fs::write(path, data);
+        let _ = fs::write(cache_path(vault), data);
     }
 }
 
 /// Normalize an absolute path to a relative path for comparison with git output.
-fn to_relative_path(abs_path: &str, vault_path: &str) -> String {
-    let with_slash = format!("{}/", vault_path);
+fn to_relative_path(abs_path: &str, vault: &Path) -> String {
+    let vault_str = vault.to_string_lossy();
+    let with_slash = format!("{}/", vault_str);
     abs_path.strip_prefix(&with_slash)
-        .or_else(|| abs_path.strip_prefix(vault_path))
+        .or_else(|| abs_path.strip_prefix(vault_str.as_ref()))
         .unwrap_or(abs_path)
         .to_string()
 }
@@ -567,44 +566,42 @@ fn parse_files_at(vault: &Path, rel_paths: &[String]) -> Vec<VaultEntry> {
 }
 
 /// Sort entries by modified_at descending and write the cache.
-fn finalize_and_cache(vault_path: &str, mut entries: Vec<VaultEntry>, hash: String) -> Vec<VaultEntry> {
+fn finalize_and_cache(vault: &Path, mut entries: Vec<VaultEntry>, hash: String) -> Vec<VaultEntry> {
     entries.sort_by(|a, b| b.modified_at.cmp(&a.modified_at));
-    write_cache(vault_path, &VaultCache { commit_hash: hash, entries: entries.clone() });
+    write_cache(vault, &VaultCache { commit_hash: hash, entries: entries.clone() });
     entries
 }
 
 /// Handle same-commit cache hit: add any uncommitted new files.
-fn update_same_commit(vault_path: &str, cache: VaultCache) -> Vec<VaultEntry> {
-    let vault = Path::new(vault_path);
-    let new_files = git_uncommitted_new_files(vault_path);
+fn update_same_commit(vault: &Path, cache: VaultCache) -> Vec<VaultEntry> {
+    let new_files = git_uncommitted_new_files(vault);
     let mut entries = cache.entries;
     let existing: std::collections::HashSet<String> = entries.iter()
-        .map(|e| to_relative_path(&e.path, vault_path))
+        .map(|e| to_relative_path(&e.path, vault))
         .collect();
 
     let new_entries = parse_files_at(vault, &new_files);
     for entry in new_entries {
-        let rel = to_relative_path(&entry.path, vault_path);
+        let rel = to_relative_path(&entry.path, vault);
         if !existing.contains(&rel) {
             entries.push(entry);
         }
     }
 
-    finalize_and_cache(vault_path, entries, cache.commit_hash)
+    finalize_and_cache(vault, entries, cache.commit_hash)
 }
 
 /// Handle different-commit cache: incremental update via git diff.
-fn update_different_commit(vault_path: &str, cache: VaultCache, current_hash: String) -> Vec<VaultEntry> {
-    let vault = Path::new(vault_path);
-    let changed_files = git_changed_files(vault_path, &cache.commit_hash, &current_hash);
+fn update_different_commit(vault: &Path, cache: VaultCache, current_hash: String) -> Vec<VaultEntry> {
+    let changed_files = git_changed_files(vault, &cache.commit_hash, &current_hash);
     let changed_set: std::collections::HashSet<String> = changed_files.iter().cloned().collect();
 
     let mut entries: Vec<VaultEntry> = cache.entries.into_iter()
-        .filter(|e| !changed_set.contains(&to_relative_path(&e.path, vault_path)))
+        .filter(|e| !changed_set.contains(&to_relative_path(&e.path, vault)))
         .collect();
     entries.extend(parse_files_at(vault, &changed_files));
 
-    finalize_and_cache(vault_path, entries, current_hash)
+    finalize_and_cache(vault, entries, current_hash)
 }
 
 /// Scan vault with incremental caching via git.
@@ -615,22 +612,22 @@ pub fn scan_vault_cached(vault_path: &str) -> Result<Vec<VaultEntry>, String> {
         return Err(format!("Vault path does not exist or is not a directory: {}", vault_path));
     }
 
-    let current_hash = match git_head_hash(vault_path) {
+    let current_hash = match git_head_hash(vault) {
         Some(h) => h,
         None => return scan_vault(vault_path),
     };
 
-    if let Some(cache) = load_cache(vault_path) {
+    if let Some(cache) = load_cache(vault) {
         return if cache.commit_hash == current_hash {
-            Ok(update_same_commit(vault_path, cache))
+            Ok(update_same_commit(vault, cache))
         } else {
-            Ok(update_different_commit(vault_path, cache, current_hash))
+            Ok(update_different_commit(vault, cache, current_hash))
         };
     }
 
     // No cache — full scan and write cache
     let entries = scan_vault(vault_path)?;
-    Ok(finalize_and_cache(vault_path, entries, current_hash))
+    Ok(finalize_and_cache(vault, entries, current_hash))
 }
 
 // Re-export for external consumers
@@ -680,39 +677,35 @@ mod tests {
         assert_eq!(extract_title(content, "empty-h1.md"), "empty-h1");
     }
 
+    fn parse_test_entry(dir: &TempDir, name: &str, content: &str) -> VaultEntry {
+        create_test_file(dir.path(), name, content);
+        parse_md_file(&dir.path().join(name)).unwrap()
+    }
+
+    const FULL_FM_CONTENT: &str = "---\nIs A: Project\naliases:\n  - Laputa\n  - Castle in the Sky\nBelongs to:\n  - Studio Ghibli\nRelated to:\n  - Miyazaki\nStatus: Active\nOwner: Luca\nCadence: Weekly\n---\n# Laputa Project\n\nThis is a project note.\n";
+
     #[test]
-    fn test_parse_full_frontmatter() {
+    fn test_parse_full_frontmatter_identity() {
         let dir = TempDir::new().unwrap();
-        let content = r#"---
-Is A: Project
-aliases:
-  - Laputa
-  - Castle in the Sky
-Belongs to:
-  - Studio Ghibli
-Related to:
-  - Miyazaki
-Status: Active
-Owner: Luca
-Cadence: Weekly
----
-# Laputa Project
-
-This is a project note.
-"#;
-        create_test_file(dir.path(), "laputa.md", content);
-
-        let entry = parse_md_file(&dir.path().join("laputa.md")).unwrap();
+        let entry = parse_test_entry(&dir, "laputa.md", FULL_FM_CONTENT);
         assert_eq!(entry.title, "Laputa Project");
         assert_eq!(entry.is_a, Some("Project".to_string()));
         assert_eq!(entry.filename, "laputa.md");
+    }
 
-        // List fields
+    #[test]
+    fn test_parse_full_frontmatter_lists() {
+        let dir = TempDir::new().unwrap();
+        let entry = parse_test_entry(&dir, "laputa.md", FULL_FM_CONTENT);
         assert_eq!(entry.aliases, vec!["Laputa", "Castle in the Sky"]);
         assert_eq!(entry.belongs_to, vec!["Studio Ghibli"]);
         assert_eq!(entry.related_to, vec!["Miyazaki"]);
+    }
 
-        // Scalar fields
+    #[test]
+    fn test_parse_full_frontmatter_scalars() {
+        let dir = TempDir::new().unwrap();
+        let entry = parse_test_entry(&dir, "laputa.md", FULL_FM_CONTENT);
         assert_eq!(entry.status, Some("Active".to_string()));
         assert_eq!(entry.owner, Some("Luca".to_string()));
         assert_eq!(entry.cadence, Some("Weekly".to_string()));
@@ -721,17 +714,11 @@ This is a project note.
     #[test]
     fn test_parse_empty_frontmatter() {
         let dir = TempDir::new().unwrap();
-        let content = "---\n---\n# Just a Title\n\nNo frontmatter fields.";
-        create_test_file(dir.path(), "empty-fm.md", content);
-
-        let entry = parse_md_file(&dir.path().join("empty-fm.md")).unwrap();
+        let entry = parse_test_entry(&dir, "empty-fm.md", "---\n---\n# Just a Title\n\nNo frontmatter fields.");
         assert_eq!(entry.title, "Just a Title");
-
-        // All list/optional fields should be empty/None
         assert!(entry.aliases.is_empty());
-        assert!(entry.belongs_to.is_empty());
-        assert!(entry.related_to.is_empty());
 
+        assert!(entry.belongs_to.is_empty());
         assert_eq!(entry.status, None);
     }
 
@@ -884,7 +871,7 @@ This is a project note.
         // First call: full scan, writes cache
         let entries = scan_vault_cached(vault.to_str().unwrap()).unwrap();
         assert_eq!(entries.len(), 1);
-        assert!(cache_path(vault.to_str().unwrap()).exists());
+        assert!(cache_path(vault).exists());
 
         // Second call: uses cache (same HEAD)
         let entries2 = scan_vault_cached(vault.to_str().unwrap()).unwrap();
@@ -969,53 +956,39 @@ Custom Field: just a plain string
         assert!(entry.relationships.is_empty());
     }
 
-    #[test]
-    fn test_parse_relationships_many_generic_fields() {
-        // Verifies that Has, Topics, Events, Notes, and other custom fields
-        // all populate the generic relationships HashMap.
+    const BIG_PROJECT_CONTENT: &str = "---\nIs A: Project\nHas:\n  - \"[[deliverable/mvp]]\"\n  - \"[[deliverable/v2]]\"\nTopics:\n  - \"[[topic/ai]]\"\n  - \"[[topic/compilers]]\"\nEvents:\n  - \"[[event/launch-day]]\"\nNotes:\n  - \"[[note/design-rationale]]\"\n  - \"[[note/meeting-2024-01]]\"\n  - \"[[note/meeting-2024-02]]\"\nOwner: \"[[person/alice]]\"\nRelated to:\n  - \"[[project/sibling-project]]\"\nBelongs to:\n  - \"[[area/engineering]]\"\nStatus: Active\n---\n# Big Project\n";
+
+    fn parse_big_project_rels() -> HashMap<String, Vec<String>> {
         let dir = TempDir::new().unwrap();
-        let content = r#"---
-Is A: Project
-Has:
-  - "[[deliverable/mvp]]"
-  - "[[deliverable/v2]]"
-Topics:
-  - "[[topic/ai]]"
-  - "[[topic/compilers]]"
-Events:
-  - "[[event/launch-day]]"
-Notes:
-  - "[[note/design-rationale]]"
-  - "[[note/meeting-2024-01]]"
-  - "[[note/meeting-2024-02]]"
-Owner: "[[person/alice]]"
-Related to:
-  - "[[project/sibling-project]]"
-Belongs to:
-  - "[[area/engineering]]"
-Status: Active
----
-# Big Project
-"#;
-        create_test_file(dir.path(), "big-project.md", content);
+        let entry = parse_test_entry(&dir, "big-project.md", BIG_PROJECT_CONTENT);
+        entry.relationships
+    }
 
-        let entry = parse_md_file(&dir.path().join("big-project.md")).unwrap();
-
-        let rels = &entry.relationships;
-
-        // Custom wikilink fields
+    #[test]
+    fn test_parse_relationships_custom_fields() {
+        let rels = parse_big_project_rels();
         assert_eq!(rels.get("Has").unwrap().len(), 2);
         assert_eq!(rels.get("Topics").unwrap().len(), 2);
         assert_eq!(rels.get("Events").unwrap().len(), 1);
+    }
 
+    #[test]
+    fn test_parse_relationships_owner_and_notes() {
+        let rels = parse_big_project_rels();
         assert_eq!(rels.get("Notes").unwrap().len(), 3);
         assert_eq!(rels.get("Owner").unwrap(), &vec!["[[person/alice]]".to_string()]);
+    }
 
-        // Built-in fields still appear as relationships when they contain wikilinks
+    #[test]
+    fn test_parse_relationships_builtin_wikilink_fields() {
+        let rels = parse_big_project_rels();
         assert_eq!(rels.get("Related to").unwrap().len(), 1);
         assert_eq!(rels.get("Belongs to").unwrap().len(), 1);
+    }
 
-        // SKIP_KEYS should NOT appear in relationships
+    #[test]
+    fn test_parse_relationships_skip_keys_excluded_from_generic() {
+        let rels = parse_big_project_rels();
         assert!(rels.get("Status").is_none());
         assert!(rels.get("Is A").is_none());
     }
@@ -1054,41 +1027,36 @@ Context: "[[area/research]]"
         );
     }
 
-    #[test]
-    fn test_parse_relationships_skip_keys_excluded() {
-        // Verifies that all SKIP_KEYS are excluded even when they contain wikilinks.
+    const SKIP_KEYS_CONTENT: &str = "---\nIs A: \"[[type/project]]\"\nAliases:\n  - \"[[alias/foo]]\"\nStatus: \"[[status/active]]\"\nCadence: \"[[cadence/weekly]]\"\nCreated at: \"[[time/2024-01-01]]\"\nCreated time: \"[[time/noon]]\"\nReal Relation: \"[[note/important]]\"\n---\n# Skip Keys Test\n";
+
+    fn parse_skip_keys_rels() -> (HashMap<String, Vec<String>>, usize) {
         let dir = TempDir::new().unwrap();
-        let content = r#"---
-Is A: "[[type/project]]"
-Aliases:
-  - "[[alias/foo]]"
-Status: "[[status/active]]"
-Cadence: "[[cadence/weekly]]"
-Created at: "[[time/2024-01-01]]"
-Created time: "[[time/noon]]"
-Real Relation: "[[note/important]]"
----
-# Skip Keys Test
-"#;
-        create_test_file(dir.path(), "skip-keys.md", content);
+        let entry = parse_test_entry(&dir, "skip-keys.md", SKIP_KEYS_CONTENT);
+        let len = entry.relationships.len();
+        (entry.relationships, len)
+    }
 
-        let entry = parse_md_file(&dir.path().join("skip-keys.md")).unwrap();
-
-        let rels = &entry.relationships;
-
-        // All SKIP_KEYS should be excluded
+    #[test]
+    fn test_skip_keys_identity_fields_excluded() {
+        let (rels, _) = parse_skip_keys_rels();
         assert!(rels.get("Is A").is_none());
         assert!(rels.get("Aliases").is_none());
         assert!(rels.get("Status").is_none());
+    }
 
+    #[test]
+    fn test_skip_keys_temporal_fields_excluded() {
+        let (rels, _) = parse_skip_keys_rels();
         assert!(rels.get("Cadence").is_none());
         assert!(rels.get("Created at").is_none());
         assert!(rels.get("Created time").is_none());
+    }
 
-        // Non-skip key with wikilink should still be included
+    #[test]
+    fn test_skip_keys_real_relation_included() {
+        let (rels, len) = parse_skip_keys_rels();
         assert_eq!(rels.get("Real Relation").unwrap(), &vec!["[[note/important]]".to_string()]);
-        // Only 1 relationship total
-        assert_eq!(entry.relationships.len(), 1);
+        assert_eq!(len, 1);
     }
 
     #[test]
@@ -1356,11 +1324,13 @@ References:
     }
 
     #[test]
-    fn test_contains_wikilink_false() {
+    fn test_contains_wikilink_false_plain_text() {
         assert!(!contains_wikilink("no links here"));
         assert!(!contains_wikilink("[single bracket]"));
+    }
 
-        // Partial wikilink markers don't count
+    #[test]
+    fn test_contains_wikilink_false_partial_markers() {
         assert!(!contains_wikilink("only [[ opening"));
         assert!(!contains_wikilink("only ]] closing"));
     }
