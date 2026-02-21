@@ -8,3 +8,9 @@ Tags: ["Personal"]
 ---
 # Dinner — 2025-01-10
 Evening dinner with Giulia Marchetti.
+
+## Notes
+- Back to our usual spot — the enoteca near Corso Como, they remember us now
+- Giulia submitted her documentary to three film festivals, fingers crossed
+- I tried the truffle tagliatelle special and it was absurdly good
+- January blues setting in for both of us, but the wine and the conversation helped

@@ -8,3 +8,8 @@ Tags: ["Health", "Sport"]
 ---
 # Cycling intervals — 2024-06-18
 60-min interval session. 4x8min at threshold power.
+
+## Notes
+- 30C and humid. Hydration was critical today.
+- Better than the same workout 3 weeks ago. Still making gains.
+- Legs felt incredible. Everything just clicked today.
